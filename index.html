@@ -15,7 +15,7 @@
       height: 100vh;
       margin: 0;
     }
-    h1 { color: #ffffff; margin-bottom: 20px; }
+    h1 { color: #003366; margin-bottom: 20px; }
     .container {
       background: #fff;
       padding: 30px;
@@ -75,70 +75,53 @@
   </footer>
 
   <script>
-    const serverUrl = "http://127.0.0.1:3001";
+  // ⚙️ Use same domain in Vercel (auto-detect)
+  const serverUrl = window.location.origin;
 
+  document.getElementById("summarizeYoutube").addEventListener("click", async () => {
+    const youtubeUrl = document.getElementById("youtubeUrl").value.trim();
     const resultBox = document.getElementById("result");
-
-    async function handleYoutubeSummarization() {
-      const youtubeUrl = document.getElementById("youtubeUrl").value.trim();
-      resultBox.style.display = "block";
-      resultBox.textContent = "⏳ Summarizing YouTube video...";
-
-      if (!youtubeUrl) {
-        alert("⚠️ Please enter a YouTube URL!");
-        resultBox.style.display = "none";
-        return;
-      }
-
-      try {
-        const response = await fetch(`${serverUrl}/summarize-youtube`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: youtubeUrl })
-        });
-
-        if (!response.ok) throw new Error(`Server error: ${response.status}`);
-        const data = await response.json();
-        resultBox.textContent = data.summary || "⚠️ No summary received.";
-      } catch (error) {
-        console.error("YouTube summarization error:", error);
-        alert("⚠️ Error connecting to server or summarizing YouTube video!");
-        resultBox.style.display = "none";
-      }
+    resultBox.style.display = "block";
+    resultBox.textContent = "⏳ Summarizing YouTube video...";
+    try {
+      const response = await fetch(`${serverUrl}/summarize-youtube`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: youtubeUrl })
+      });
+      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+      const data = await response.json();
+      resultBox.textContent = data.summary || "⚠️ No summary received.";
+    } catch (error) {
+      console.error("YouTube summarization error:", error);
+      alert("⚠️ Error summarizing YouTube video!");
+      resultBox.textContent = "";
     }
+  });
 
-    async function handlePdfSummarization() {
-      const pdfFile = document.getElementById("pdfFile").files[0];
-      resultBox.style.display = "block";
-      resultBox.textContent = "⏳ Summarizing PDF...";
-
-      if (!pdfFile) {
-        alert("⚠️ Please upload a PDF first!");
-        resultBox.style.display = "none";
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("file", pdfFile);
-
-      try {
-        const response = await fetch(`${serverUrl}/summarize-pdf`, {
-          method: "POST",
-          body: formData
-        });
-
-        if (!response.ok) throw new Error(`Server error: ${response.status}`);
-        const data = await response.json();
-        resultBox.textContent = data.summary || "⚠️ No summary received.";
-      } catch (error) {
-        console.error("PDF summarization error:", error);
-        alert("⚠️ Error connecting to server or summarizing PDF!");
-        resultBox.style.display = "none";
-      }
+  document.getElementById("summarizePdf").addEventListener("click", async () => {
+    const pdfFile = document.getElementById("pdfFile").files[0];
+    const resultBox = document.getElementById("result");
+    resultBox.style.display = "block";
+    resultBox.textContent = "⏳ Summarizing PDF...";
+    if (!pdfFile) return alert("Please upload a PDF first!");
+    const formData = new FormData();
+    formData.append("file", pdfFile);
+    try {
+      const response = await fetch(`${serverUrl}/summarize-pdf`, {
+        method: "POST",
+        body: formData
+      });
+      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+      const data = await response.json();
+      resultBox.textContent = data.summary || "⚠️ No summary received.";
+    } catch (error) {
+      console.error("PDF summarization error:", error);
+      alert("⚠️ Error summarizing PDF!");
+      resultBox.textContent = "";
     }
-
-    document.getElementById("summarizeYoutube").addEventListener("click", handleYoutubeSummarization);
-    document.getElementById("summarizePdf").addEventListener("click", handlePdfSummarization);
-  </script>
+  });
+</script>
 </body>
 </html>
+
