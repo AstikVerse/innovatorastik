@@ -6,58 +6,81 @@ import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { YoutubeTranscript } from "youtube-transcript";
+import cors from "cors";
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
-const PORT = 3001;
-
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Gemini setup
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
-// PDF upload setup
 const upload = multer({ dest: "uploads/" });
+const PORT = process.env.PORT || 3001;
 
-// YouTube summarization route
-app.post("/summarize-youtube", async (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ error: "Missing YouTube URL" });
+// ✅ Allow frontend access
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type"],
+  })
+);
 
-  try {
-    const prompt = `Summarize this YouTube video: ${url}`;
-    const result = await model.generateContent(prompt);
-    const summary = result.response.text();
-    res.json({ summary });
-  } catch (err) {
-    console.error("YouTube summarization error:", err);
-    res.status(500).json({ error: "Failed to summarize YouTube video" });
-  }
-});
+app.use(express.static(__dirname));
+app.use(express.json());
 
-// PDF summarization route
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// 📄 PDF Summarizer
 app.post("/summarize-pdf", upload.single("file"), async (req, res) => {
-  const filePath = req.file?.path;
-  if (!filePath) return res.status(400).json({ error: "No PDF uploaded" });
-
   try {
-    const dataBuffer = fs.readFileSync(filePath);
-    const pdfData = await pdf(dataBuffer);
-    const prompt = `Summarize this PDF content:\n\n${pdfData.text}`;
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    const dataBuffer = fs.readFileSync(req.file.path);
+    const text = await pdf(dataBuffer);
+
+    if (!text.text)
+      return res.status(400).json({ error: "Could not extract text from PDF" });
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `Summarize this PDF content in short, clear bullet points:\n\n${text.text}`;
     const result = await model.generateContent(prompt);
-    const summary = result.response.text();
-    res.json({ summary });
+
+    res.json({ summary: result.response.text() });
+    fs.unlinkSync(req.file.path);
   } catch (err) {
-    console.error("PDF summarization error:", err);
-    res.status(500).json({ error: "Failed to summarize PDF" });
-  } finally {
-    fs.unlinkSync(filePath); // Clean up uploaded file
+    console.error("PDF summarization error:", err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
+// 🎥 YouTube Summarizer
+app.post("/summarize-youtube", async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: "Missing YouTube URL" });
+
+    const videoId = new URL(url).searchParams.get("v");
+    if (!videoId)
+      return res.status(400).json({ error: "Invalid YouTube URL format" });
+
+    const transcript = await YoutubeTranscript.fetchTranscript(videoId);
+    if (!transcript || transcript.length === 0)
+      return res.status(400).json({ error: "No transcript available" });
+
+    const text = transcript.map((t) => t.text).join(" ");
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `Summarize this YouTube video transcript in short, clear bullet points:\n\n${text}`;
+    const result = await model.generateContent(prompt);
+
+    res.json({ summary: result.response.text() });
+  } catch (err) {
+    console.error("YouTube summarization error:", err.message);
+    res.status(500).json({ error: "Failed to summarize YouTube video." });
+  }
+});
+
+// ✅ Start server
 app.listen(PORT, () => {
-  console.log(`✅ Server running at http://127.0.0.1:${PORT}`);
+  console.log(`🚀 Backend running on http://localhost:${PORT}`);
 });
