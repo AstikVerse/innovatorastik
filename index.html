@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Summarizer | Gemini API</title>
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #4a5664;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    h1 { color: #ffffff; margin-bottom: 20px; }
+    .container {
+      background: #fff;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      width: 400px;
+      text-align: center;
+    }
+    input[type="text"], input[type="file"] {
+      width: 90%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      background-color: #0078ff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover { background-color: #005fcc; }
+    #result {
+      margin-top: 20px;
+      text-align: left;
+      white-space: pre-wrap;
+      color: #333;
+      background: #f5f9ff;
+      padding: 10px;
+      border-radius: 10px;
+      display: none;
+    }
+    footer { margin-top: 20px; color: #ccc; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>AI Summarizer</h1>
+  <div class="container">
+    <h3>🎥 YouTube Summarizer</h3>
+    <input type="text" id="youtubeUrl" placeholder="Enter YouTube video URL" />
+    <button id="summarizeYoutube">Summarize</button>
+
+    <hr />
+
+    <h3>📄 PDF Summarizer</h3>
+    <input type="file" id="pdfFile" accept=".pdf" />
+    <button id="summarizePdf">Summarize PDF</button>
+
+    <div id="result"></div>
+  </div>
+
+  <footer>
+    Powered by Google Gemini | Summarize YouTube videos or PDFs instantly
+  </footer>
+
+  <script>
+    const serverUrl = "http://127.0.0.1:3001";
+
+    const resultBox = document.getElementById("result");
+
+    async function handleYoutubeSummarization() {
+      const youtubeUrl = document.getElementById("youtubeUrl").value.trim();
+      resultBox.style.display = "block";
+      resultBox.textContent = "⏳ Summarizing YouTube video...";
+
+      if (!youtubeUrl) {
+        alert("⚠️ Please enter a YouTube URL!");
+        resultBox.style.display = "none";
+        return;
+      }
+
+      try {
+        const response = await fetch(`${serverUrl}/summarize-youtube`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: youtubeUrl })
+        });
+
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        const data = await response.json();
+        resultBox.textContent = data.summary || "⚠️ No summary received.";
+      } catch (error) {
+        console.error("YouTube summarization error:", error);
+        alert("⚠️ Error connecting to server or summarizing YouTube video!");
+        resultBox.style.display = "none";
+      }
+    }
+
+    async function handlePdfSummarization() {
+      const pdfFile = document.getElementById("pdfFile").files[0];
+      resultBox.style.display = "block";
+      resultBox.textContent = "⏳ Summarizing PDF...";
+
+      if (!pdfFile) {
+        alert("⚠️ Please upload a PDF first!");
+        resultBox.style.display = "none";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", pdfFile);
+
+      try {
+        const response = await fetch(`${serverUrl}/summarize-pdf`, {
+          method: "POST",
+          body: formData
+        });
+
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        const data = await response.json();
+        resultBox.textContent = data.summary || "⚠️ No summary received.";
+      } catch (error) {
+        console.error("PDF summarization error:", error);
+        alert("⚠️ Error connecting to server or summarizing PDF!");
+        resultBox.style.display = "none";
+      }
+    }
+
+    document.getElementById("summarizeYoutube").addEventListener("click", handleYoutubeSummarization);
+    document.getElementById("summarizePdf").addEventListener("click", handlePdfSummarization);
+  </script>
+</body>
+</html>
